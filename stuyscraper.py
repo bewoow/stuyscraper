@@ -44,6 +44,9 @@ def send_email(send_from, send_to, subject, text, email_password, smtp_server, s
 
 def main(stuytown_url, email_username, email_password, email_recipients, smtp_server='smtp.gmail.com', smtp_port=465):
     units = []
+    studio_max_price = 2500
+    one_bed_max_price = 3000
+    two_bed_max_price = 3500
 
     while True:
         if dt.now().hour in range(18, 19):  #start, stop are integers (eg: 6, 9)
@@ -52,15 +55,15 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
             one_beds = [apt for apt in apts if apt['bedrooms'] == 1]
             two_beds = [apt for apt in apts if apt['bedrooms'] == 2 or (apt['bedrooms'] == 1 and apt['isflex'] == True)]
 
-            body = 'Hi, check below: \n\n'
+            intro = 'Hi, check below: \n\n'
+            body = intro
             try:
                 cheapest_studio = sorted(studios, key=lambda x: x['price'])[0]
                 studio_unit = cheapest_studio['address'].lower() + ' #' + cheapest_studio['unitName']
 
                 logging.info('Lowest priced studio: {0}, ${1}'.format(studio_unit, cheapest_studio['price']))
-                if cheapest_studio['price'] < 2500:
-                    logging.info('{0} sqft'.format(cheapest_studio['sqft']))
-                    logging.info(cheapest_studio['absoluteUrl'])
+                if cheapest_studio['price'] < studio_max_price:
+                    logging.info('Studio < ${0:d} found. {1}'.format(studio_max_price, cheapest_studio['absoluteUrl']))
 
                     if studio_unit not in units:
                         body += '\u2022 Studio: {0}, ${1:d}, {2} sqft, {3}\n'.format(studio_unit, cheapest_studio['price'], \
@@ -75,9 +78,8 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
                 one_bed_unit = cheapest_one_bed['address'].lower() + ' #' + cheapest_one_bed['unitName']
 
                 logging.info('Lowest priced 1-bedroom: {0}, ${1}'.format(one_bed_unit, cheapest_one_bed['price']))
-                if cheapest_one_bed['price'] < 3000:
-                    logging.info('{0} sqft'.format(cheapest_one_bed['sqft']))
-                    logging.info(cheapest_one_bed['absoluteUrl'])
+                if cheapest_one_bed['price'] < one_bed_max_price:
+                    logging.info('1-bedroom < ${0:d} found. {1}'.format(one_bed_max_price, cheapest_one_bed['absoluteUrl']))
 
                     if one_bed_unit not in units:
                         body += '\u2022 1-bedroom: {0}, ${1:d}, {2} sqft, {3}\n'.format(one_bed_unit, cheapest_one_bed['price'], \
@@ -93,9 +95,8 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
 
                 bedroom_type = '2-bedroom (flex)' if cheapest_two_bed['isflex'] else '2-bedroom (regular)'
                 logging.info('Lowest priced {0}: {1}, ${2}'.format(bedroom_type, two_bed_unit, cheapest_two_bed['price']))
-                if cheapest_two_bed['price'] < 3500:
-                    logging.info('{0} sqft'.format(cheapest_two_bed['sqft']))
-                    logging.info(cheapest_two_bed['absoluteUrl'])
+                if cheapest_two_bed['price'] < two_bed_max_price:
+                    logging.info('{0} < ${1:d} found. {2}'.format(bedroom_type, two_bed_max_price, cheapest_two_bed['absoluteUrl']))
 
                     if two_bed_unit not in units:
                         body += '\u2022 {0}: {1}, ${2:d}, {3} sqft, {4}\n'.format(bedroom_type, two_bed_unit, cheapest_two_bed['price'], \
@@ -105,10 +106,11 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
             except IndexError:
                 logging.info('No 2-bedrooms available')
 
-            if body != 'Hey, check below: \n':
+            if body != intro:
                 body += '\nCheers,\nNivko'
                 subject = 'Stuytown Updates! ' + formatdate(localtime=True)
                 send_email(email_username, email_recipients, subject, body, email_password, smtp_server, smtp_port)
+                logging.info('Email sent to {0}'.format(', '.join(email_recipients)))
 
             time.sleep(60 * 1)  # Minimum interval between task executions (seconds)
         else:
