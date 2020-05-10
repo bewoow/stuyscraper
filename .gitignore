@@ -1,1 +1,4 @@
 .ipynb_checkpoints/*
+email_account_info.txt
+recipients.txt
+*.log
