@@ -112,10 +112,11 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
                 send_email(email_username, email_recipients, subject, body, email_password, smtp_server, smtp_port)
                 logging.info('Email sent to {0}'.format(', '.join(email_recipients)))
 
-            time.sleep(60 * 15)  # Minimum interval between task executions (seconds)
+            time.sleep(60 * 30)  # Minimum interval between task executions (seconds)
         else:
             units = []
-            time.sleep(10)  # The else clause is not necessary but would prevent the program to
+            time.sleep(60 * 60)  # The else clause is not necessary but would prevent the program to stop
+            logging.info('Sleeping...')
 
 if __name__ == '__main__':
     # Stuytown URL
