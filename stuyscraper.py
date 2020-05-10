@@ -49,7 +49,7 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
     two_bed_max_price = 3500
 
     while True:
-        if dt.now().hour in range(18, 19):  #start, stop are integers (eg: 6, 9)
+        if dt.now().hour in range(6, 9):  #start, stop are integers (eg: 6, 9)
             apts = requests.get(stuytown_url).json()['result']
             studios = [apt for apt in apts if apt['bedrooms'] == 0]
             one_beds = [apt for apt in apts if apt['bedrooms'] == 1]
@@ -112,7 +112,7 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
                 send_email(email_username, email_recipients, subject, body, email_password, smtp_server, smtp_port)
                 logging.info('Email sent to {0}'.format(', '.join(email_recipients)))
 
-            time.sleep(60 * 1)  # Minimum interval between task executions (seconds)
+            time.sleep(60 * 15)  # Minimum interval between task executions (seconds)
         else:
             units = []
             time.sleep(10)  # The else clause is not necessary but would prevent the program to
