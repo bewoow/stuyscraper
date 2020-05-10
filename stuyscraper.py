@@ -3,6 +3,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 
+import time
 from datetime import datetime as dt
 
 import requests
@@ -10,8 +11,7 @@ from urllib.request import urlopen
 
 import logging # TODO: Add logging
 
-def send_email(send_from, send_to, subject, text, email_password, \
-    smtp_server = 'smtp.gmail.com', smtp_port = 465):
+def send_email(send_from, send_to, subject, text, email_password, smtp_server, smtp_port):
     try:
         assert isinstance(send_to, list)
 
@@ -30,57 +30,76 @@ def send_email(send_from, send_to, subject, text, email_password, \
     except Exception as e:
         print('Something went wrong...')
 
-def main(stuytown_url, email_username, email_password, smtp_server, smtp_port, email_recipients):
+def main(stuytown_url, email_username, email_password, email_recipients, smtp_server='smtp.gmail.com', smtp_port=465):
+    units = []
     while True:
-        if dt.now().hour in range(6, 9):  #start, stop are integers (eg: 6, 9)
+        if dt.now().hour in range(18, 19):  #start, stop are integers (eg: 6, 9)
             apts = requests.get(stuytown_url).json()['result']
             studios = [apt for apt in apts if apt['bedrooms'] == 0]
             one_beds = [apt for apt in apts if apt['bedrooms'] == 1]
             two_beds = [apt for apt in apts if apt['bedrooms'] == 2 or (apt['bedrooms'] == 1 and apt['isflex'] == True)]
 
-            body = 'Hey, check below: \n\n'
+            body = 'Hey, check below: \n'
             try:
-                cheapest_price_studio = sorted(studios, key=lambda x: x['price'])[0]
-                print('Lowest price for studio: ${0}'.format(cheapest_price_studio['price']))
-                if cheapest_price_studio['price'] < 2500:
-                    print('{0} sqft'.format(cheapest_price_studio['sqft']))
-                    print(cheapest_price_studio['absoluteUrl'])
+                cheapest_studio = sorted(studios, key=lambda x: x['price'])[0]
+                studio_unit = cheapest_studio['address'].lower() + ' #' + cheapest_studio['unitName']
 
-                    body += '\tStudio: ${0:d}, {1} sqft, {2}\n\n'.format(cheapest_price_studio['price'], \
-                        cheapest_price_studio['sqft'], cheapest_price_studio['absoluteUrl'])
+                print('Lowest priced studio: {0}, ${1}'.format(studio_unit, cheapest_studio['price']))
+                if cheapest_studio['price'] < 2500:
+                    print('{0} sqft'.format(cheapest_studio['sqft']))
+                    print(cheapest_studio['absoluteUrl'])
+
+                    if studio_unit not in units:
+                        body += '\u2022 Studio: {0}, ${1:d}, {2} sqft, {3}\n'.format(studio_unit, cheapest_studio['price'], \
+                            cheapest_studio['sqft'], cheapest_studio['absoluteUrl'])
+
+                        units.append(studio_unit)
             except IndexError:
                 print('No studios available')
 
             try:
                 cheapest_one_bed = sorted(one_beds, key=lambda x: x['price'])[0]
-                print('Lowest price for 1-bedroom: ${0}'.format(cheapest_one_bed['price']))
+                one_bed_unit = cheapest_one_bed['address'].lower() + ' #' + cheapest_one_bed['unitName']
+
+                print('Lowest priced 1-bedroom: {0}, ${1}'.format(one_bed_unit, cheapest_one_bed['price']))
                 if cheapest_one_bed['price'] < 3000:
                     print('{0} sqft'.format(cheapest_one_bed['sqft']))
                     print(cheapest_one_bed['absoluteUrl'])
 
-                    body += '\t1-bedroom: ${0:d}, {1} sqft, {2}\n\n'.format(cheapest_one_bed['price'], \
-                        cheapest_one_bed['sqft'], cheapest_one_bed['absoluteUrl'])
+                    if one_bed_unit not in units:
+                        body += '\u2022 1-bedroom: {0}, ${1:d}, {2} sqft, {3}\n'.format(one_bed_unit, cheapest_one_bed['price'], \
+                            cheapest_one_bed['sqft'], cheapest_one_bed['absoluteUrl'])
+
+                        units.append(one_bed_unit)
             except IndexError:
                 print('No 1-bedrooms available')
 
             try:
                 cheapest_two_bed = sorted(two_beds, key=lambda x: x['price'])[0]
+                two_bed_unit = cheapest_two_bed['address'].lower() + ' #' + cheapest_two_bed['unitName']
+
                 bedroom_type = '2-bedroom (flex)' if cheapest_two_bed['isflex'] else '2-bedroom (regular)'
-                print('Lowest price for {0}: ${1}'.format(bedroom_type, cheapest_two_bed['price']))
+                print('Lowest priced {0}: {1}, ${2}'.format(bedroom_type, two_bed_unit, cheapest_two_bed['price']))
                 if cheapest_two_bed['price'] < 3500:
                     print('{0} sqft'.format(cheapest_two_bed['sqft']))
                     print(cheapest_two_bed['absoluteUrl'])
 
-                    body += '\t{0}: ${1:d}, {2} sqft, {3}\n\n'.format(bedroom_type, cheapest_two_bed['price'], \
-                        cheapest_two_bed['sqft'], cheapest_two_bed['absoluteUrl'])
+                    if two_bed_unit not in units:
+                        body += '\u2022 {0}: {1}, ${2:d}, {3} sqft, {3}\n'.format(bedroom_type, two_bed_unit, cheapest_two_bed['price'], \
+                            cheapest_two_bed['sqft'], cheapest_two_bed['absoluteUrl'])
+
+                        units.append(two_bed_unit)
             except IndexError:
                 print('No 2-bedrooms available')
 
-            subject = 'Stuytown Updates!'
-            send_email(email_username, email_recipients, subject, body, email_password, smtp_server, smtp_port)
+            if body != 'Hey, check below: \n':
+                body += 'Cheers,\nNivko'
+                subject = 'Stuytown Updates! ' + formatdate(localtime=True)
+                send_email(email_username, email_recipients, subject, body, email_password, smtp_server, smtp_port)
 
             time.sleep(60 * 30)  # Minimum interval between task executions (seconds)
         else:
+            units = []
             time.sleep(10)  # The else clause is not necessary but would prevent the program to
 
 if __name__ == '__main__':
@@ -99,4 +118,4 @@ if __name__ == '__main__':
         data = f.readlines()
         email_recipients = [email.strip() for email in data]
 
-    main(stuytown_url, email_username, email_password, smtp_server, smtp_port, email_recipients)
+    main(stuytown_url, email_username, email_password, email_recipients,  smtp_server, smtp_port)
