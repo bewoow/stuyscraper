@@ -40,12 +40,13 @@ def send_email(send_from, send_to, subject, text, email_password, smtp_server, s
         server.sendmail(send_from, send_to, msg.as_string())
         server.close()
     except Exception as e:
-        print('Something went wrong...')
+        logging.warning('Email could not be sent...')
 
 def main(stuytown_url, email_username, email_password, email_recipients, smtp_server='smtp.gmail.com', smtp_port=465):
     units = []
     studio_max_price = 2500
     one_bed_max_price = 3000
+    one_bed_flex_max_price = 3200
     two_bed_max_price = 3500
 
     while True:
@@ -53,7 +54,8 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
             apts = requests.get(stuytown_url).json()['result']
             studios = [apt for apt in apts if apt['bedrooms'] == 0]
             one_beds = [apt for apt in apts if apt['bedrooms'] == 1]
-            two_beds = [apt for apt in apts if apt['bedrooms'] == 2 or (apt['bedrooms'] == 1 and apt['isflex'] == True)]
+            one_beds_flex = [apt for apt in apts if (apt['bedrooms'] == 1 and apt['isflex'] == True)]
+            two_beds = [apt for apt in apts if apt['bedrooms'] == 2]
 
             intro = 'Hi, check below: \n\n'
             body = intro
@@ -90,16 +92,31 @@ def main(stuytown_url, email_username, email_password, email_recipients, smtp_se
                 logging.info('No 1-bedrooms available')
 
             try:
+                cheapest_one_bed_flex = sorted(one_beds_flex, key=lambda x: x['price'])[0]
+                one_bed_flex_unit = cheapest_one_bed_flex['address'].lower() + ' #' + cheapest_one_bed_flex['unitName']
+
+                logging.info('Lowest priced 1-bedroom (flex): {0}, ${1}'.format(one_bed_flex_unit, cheapest_one_bed_flex['price']))
+                if cheapest_one_bed_flex['price'] < one_bed_flex_max_price:
+                    logging.info('1-bedroom (flex) < ${0:d} found. {1}'.format(one_bed_flex_max_price, cheapest_one_bed_flex['absoluteUrl']))
+
+                    if one_bed_flex_unit not in units:
+                        body += '\u2022 1-bedroom (flex): {0}, ${1:d}, {2} sqft, {3}\n'.format(one_bed_flex_unit, \
+                            cheapest_one_bed_flex['price'], cheapest_one_bed_flex['sqft'], cheapest_one_bed_flex['absoluteUrl'])
+
+                        units.append(one_bed_flex_unit)
+            except IndexError:
+                logging.info('No 1-bedrooms (flex) available')
+
+            try:
                 cheapest_two_bed = sorted(two_beds, key=lambda x: x['price'])[0]
                 two_bed_unit = cheapest_two_bed['address'].lower() + ' #' + cheapest_two_bed['unitName']
 
-                bedroom_type = '2-bedroom (flex)' if cheapest_two_bed['isflex'] else '2-bedroom (regular)'
-                logging.info('Lowest priced {0}: {1}, ${2}'.format(bedroom_type, two_bed_unit, cheapest_two_bed['price']))
+                logging.info('Lowest priced 2-bedroom: {0}, ${1}'.format(two_bed_unit, cheapest_two_bed['price']))
                 if cheapest_two_bed['price'] < two_bed_max_price:
-                    logging.info('{0} < ${1:d} found. {2}'.format(bedroom_type, two_bed_max_price, cheapest_two_bed['absoluteUrl']))
+                    logging.info('2-bedroom < ${0:d} found. {1}'.format(two_bed_max_price, cheapest_two_bed['absoluteUrl']))
 
                     if two_bed_unit not in units:
-                        body += '\u2022 {0}: {1}, ${2:d}, {3} sqft, {4}\n'.format(bedroom_type, two_bed_unit, cheapest_two_bed['price'], \
+                        body += '\u2022 2-bedroom: {0}, ${1:d}, {2} sqft, {3}\n'.format(two_bed_unit, cheapest_two_bed['price'], \
                             cheapest_two_bed['sqft'], cheapest_two_bed['absoluteUrl'])
 
                         units.append(two_bed_unit)
